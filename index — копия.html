@@ -1,0 +1,192 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>Logistics Manager — Последняя миля</title>
+<style>
+:root{--bg:#0b1120;--panel:#111827;--panel2:#172033;--line:#263247;--text:#e8edf5;--muted:#94a3b8;--blue:#3b82f6;--green:#22c55e;--orange:#f59e0b;--red:#ef4444}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--text);font:14px Arial, sans-serif}
+button,select,input{font:inherit}button{border:0;border-radius:9px;padding:10px 14px;background:var(--blue);color:#fff;font-weight:700;cursor:pointer}button:hover{filter:brightness(1.12)}button:disabled{opacity:.45;cursor:not-allowed}button.gray{background:#334155}button.green{background:var(--green)}button.red{background:var(--red)}
+.top{height:72px;background:var(--panel);border-bottom:1px solid var(--line);display:flex;align-items:center;justify-content:space-between;padding:0 22px;gap:15px}.brand{font-size:21px;font-weight:800}.sub{color:var(--muted);font-size:12px;margin-top:4px}
+.layout{display:grid;grid-template-columns:260px 1fr;min-height:calc(100vh - 72px)}aside{background:var(--panel);border-right:1px solid var(--line);padding:16px}.main{padding:18px;max-width:1500px;width:100%;margin:auto}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:15px;margin-bottom:15px}.stats{display:grid;grid-template-columns:repeat(5,1fr);gap:12px}.stat{background:var(--panel2);border-radius:12px;padding:13px}.stat small{color:var(--muted)}.stat strong{display:block;font-size:23px;margin-top:7px}
+.grid2{display:grid;grid-template-columns:1.35fr .65fr;gap:15px}.grid3{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}
+h1,h2,h3{margin:0 0 10px}h2{font-size:18px}h3{font-size:15px}.muted{color:var(--muted)}.toolbar{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px}
+select,input{background:#0b1120;color:var(--text);border:1px solid #3a475d;border-radius:8px;padding:9px;width:100%}label{font-size:12px;color:#cbd5e1;display:block;margin-bottom:5px}
+table{width:100%;border-collapse:collapse}th,td{padding:9px;border-bottom:1px solid var(--line);text-align:left;font-size:12px}th{color:var(--muted)}tr.selected{background:#142448}.status{padding:4px 7px;border-radius:99px;background:#334155;font-size:11px}.status.done{background:#14532d}.status.route{background:#1e3a8a}.status.late{background:#7f1d1d}
+.vehicle{background:var(--panel2);border:1px solid var(--line);padding:12px;border-radius:11px;margin-bottom:9px}.bar{height:8px;background:#0b1120;border-radius:9px;overflow:hidden;margin-top:7px}.bar i{display:block;height:100%;background:var(--blue)}
+.map{position:relative;height:410px;background:#0a1222;border-radius:11px;overflow:hidden;border:1px solid var(--line);background-image:linear-gradient(#172033 1px,transparent 1px),linear-gradient(90deg,#172033 1px,transparent 1px);background-size:40px 40px}
+.road{position:absolute;height:3px;background:#334155;transform-origin:left center}.node{position:absolute;width:28px;height:28px;border-radius:50%;background:var(--blue);display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:bold;z-index:2}.warehouse{background:var(--green)}.node-label{position:absolute;font-size:11px;color:#cbd5e1;transform:translate(-50%,16px);white-space:nowrap;z-index:3}
+.route{padding:11px;background:var(--panel2);border-radius:10px;margin:8px 0}.chips{display:flex;flex-wrap:wrap;gap:6px}.chip{background:#334155;border-radius:8px;padding:7px 9px}.event{border-left:3px solid var(--orange);background:#241d0f;padding:9px;margin:7px 0;border-radius:7px;font-size:12px}
+.modal{position:fixed;inset:0;background:rgba(0,0,0,.72);display:none;align-items:center;justify-content:center;padding:20px;z-index:100}.modal.open{display:flex}.modal-box{background:var(--panel);border:1px solid #475569;border-radius:15px;padding:20px;max-width:650px;width:100%;max-height:90vh;overflow:auto}
+.toast{position:fixed;right:18px;bottom:18px;background:#1e293b;border:1px solid #475569;padding:12px 15px;border-radius:10px;display:none;z-index:200}.toast.show{display:block}
+@media(max-width:900px){.layout{grid-template-columns:1fr}aside{border-right:0;border-bottom:1px solid var(--line)}.stats{grid-template-columns:repeat(2,1fr)}.grid2,.grid3{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<header class="top">
+ <div><div class="brand">🚚 Logistics Manager</div><div class="sub">Учебный симулятор управления последней милей</div></div>
+ <div class="toolbar"><button class="gray" id="rulesBtn">Правила</button><button id="newBtn">Новая игра</button></div>
+</header>
+<div class="layout">
+<aside>
+ <h3>Сценарий</h3>
+ <select id="scenario">
+  <option value="basic">Базовый день</option><option value="rush">Пиковый спрос</option><option value="fuel">Дорогое топливо</option><option value="warehouse">Закрытие склада</option>
+ </select>
+ <div class="card" style="margin-top:14px"><h3>Цель</h3><p class="muted">Получите максимальный KPI: доставляйте вовремя, экономьте топливо и не перегружайте транспорт.</p></div>
+ <h3>События</h3><div id="events"></div>
+</aside>
+<main class="main">
+ <div class="stats">
+  <div class="stat"><small>Бюджет</small><strong id="money">€0</strong></div>
+  <div class="stat"><small>Время</small><strong id="clock">08:00</strong></div>
+  <div class="stat"><small>Доставлено</small><strong id="progress">0/0</strong></div>
+  <div class="stat"><small>Просрочено</small><strong id="late">0</strong></div>
+  <div class="stat"><small>KPI</small><strong id="kpi">0</strong></div>
+ </div>
+
+ <section class="card">
+  <h2>🗺️ Логистическая сеть</h2>
+  <div class="map" id="map"></div>
+ </section>
+
+ <div class="grid2">
+  <section class="card">
+   <h2>📦 Заказы</h2>
+   <div class="toolbar"><button id="allBtn">Выбрать ожидающие</button><button class="gray" id="clearBtn">Снять выбор</button></div>
+   <div style="overflow:auto;max-height:420px">
+   <table><thead><tr><th></th><th>Заказ</th><th>Маршрут</th><th>Вес</th><th>Окно</th><th>Оплата</th><th>Статус</th></tr></thead><tbody id="orders"></tbody></table>
+   </div>
+  </section>
+  <section class="card"><h2>🚛 Автопарк</h2><div id="vehicles"></div></section>
+ </div>
+
+ <div class="grid2">
+  <section class="card">
+   <h2>📍 Планирование</h2>
+   <div class="grid3">
+    <div><label>Автомобиль</label><select id="vehicle"></select></div>
+    <div><label>Режим движения</label><select id="speed"><option value="1">Обычный</option><option value="1.25">Ускоренный</option></select></div>
+    <div style="display:flex;align-items:end"><button class="green" id="addRoute">Добавить в маршрут</button></div>
+   </div>
+   <div id="routes" style="margin-top:12px"></div>
+  </section>
+  <section class="card">
+   <h2>📊 Аналитика</h2><div id="analysis"></div>
+   <button class="red" id="finishBtn" style="margin-top:12px">Завершить день</button>
+  </section>
+ </div>
+</main>
+</div>
+
+<div class="modal" id="modal"><div class="modal-box"><div id="modalBody"></div><button class="gray" id="closeModal" style="margin-top:15px">Закрыть</button></div></div>
+<div class="toast" id="toast"></div>
+
+<script>
+"use strict";
+const L=[
+{id:"WH1",n:"Склад Север",x:15,y:22,w:true},{id:"WH2",n:"Склад Юг",x:15,y:78,w:true},
+{id:"A",n:"Центр",x:43,y:25},{id:"B",n:"Университет",x:68,y:18},{id:"C",n:"Промзона",x:72,y:70},{id:"D",n:"Пригород",x:40,y:76},{id:"E",n:"Вокзал",x:88,y:43}];
+const names=L.map(x=>x.id);
+let S={};
+
+function $(id){return document.getElementById(id)}
+function money(x){return "€"+Math.round(x).toLocaleString("ru-RU")}
+function clock(m){let h=8+Math.floor(m/60),q=m%60;return String(h).padStart(2,"0")+":"+String(q).padStart(2,"0")}
+function rnd(a,b){return Math.floor(Math.random()*(b-a+1))+a}
+function get(id){return L.find(x=>x.id===id)}
+function distance(a,b){return Math.hypot(a.x-b.x,a.y-b.y)/4.8}
+function cfg(){return {basic:{budget:5000,fuel:1,count:18},rush:{budget:5500,fuel:1.08,count:25},fuel:{budget:5000,fuel:1.65,count:18},warehouse:{budget:5000,fuel:1,count:21}}[$("scenario").value]}
+function newGame(){
+ const c=cfg();
+ S={budget:c.budget,start:c.budget,fuel:c.fuel,time:0,selected:[],delivered:0,late:0,onTime:0,revenue:0,fuelLiters:0,events:[],
+ vehicles:[
+  {id:"V1",name:"Фургон 1",cap:800,load:0,km:0,route:[]},
+  {id:"V2",name:"Фургон 2",cap:1000,load:0,km:0,route:[]},
+  {id:"V3",name:"Грузовик 1",cap:1800,load:0,km:0,route:[]},
+  {id:"V4",name:"Грузовик 2",cap:2200,load:0,km:0,route:[]}
+ ],orders:[]};
+ for(let i=1;i<=c.count;i++){
+  let from=Math.random()<.5?"WH1":"WH2",to=["A","B","C","D","E"][rnd(0,4)],weight=rnd(70,480),due=rnd(100,500);
+  S.orders.push({id:"O"+String(i).padStart(2,"0"),from,to,weight,due,revenue:Math.round(weight*(1.8+Math.random()*1.5)),status:"Ожидает"});
+ }
+ S.events.push({t:"Новый рабочий день",d:`Получено ${S.orders.length} заказов. Бюджет ${money(S.budget)}.`});
+ render();toast("Игра началась");
+}
+function render(){
+ $("money").textContent=money(S.budget);$("clock").textContent=clock(S.time);
+ $("progress").textContent=S.delivered+"/"+S.orders.length;$("late").textContent=S.late;$("kpi").textContent=kpi();
+ $("orders").innerHTML=S.orders.map(o=>`<tr class="${S.selected.includes(o.id)?"selected":""}">
+ <td><input type="checkbox" data-order="${o.id}" ${S.selected.includes(o.id)?"checked":""} ${o.status!=="Ожидает"?"disabled":""}></td>
+ <td><b>${o.id}</b></td><td>${o.from} → ${o.to}</td><td>${o.weight} кг</td><td>до ${clock(o.due)}</td><td>${money(o.revenue)}</td>
+ <td><span class="status ${o.status==="Доставлен"?"done":o.status==="В маршруте"?"route":""}">${o.status}</span></td></tr>`).join("");
+ $("vehicles").innerHTML=S.vehicles.map(v=>`<div class="vehicle"><b>${v.name}</b><div class="muted">${v.load}/${v.cap} кг · ${v.km.toFixed(1)} км · ${v.route.length} заказов</div><div class="bar"><i style="width:${Math.min(100,v.load/v.cap*100)}%"></i></div></div>`).join("");
+ $("vehicle").innerHTML=S.vehicles.map(v=>`<option value="${v.id}">${v.name} — свободно ${v.cap-v.load} кг</option>`).join("");
+ $("routes").innerHTML=S.vehicles.map(v=>v.route.length?`<div class="route"><b>${v.name}</b><div class="chips" style="margin:7px 0">${v.route.map(id=>{let o=getOrder(id);return `<span class="chip">${id} → ${o.to}</span>`}).join("")}</div><button data-dispatch="${v.id}">🚚 Отправить маршрут</button></div>`:"").join("")||'<span class="muted">Маршрутов пока нет.</span>';
+ let util=S.vehicles.reduce((a,v)=>a+v.load,0)/S.vehicles.reduce((a,v)=>a+v.cap,0)*100;
+ $("analysis").innerHTML=`<p>Выручка: <b>${money(S.revenue)}</b></p><p>Расходы: <b>${money(S.start-S.budget)}</b></p><p>Топливо: <b>${S.fuelLiters.toFixed(1)} л</b></p><p>Своевременность: <b>${S.delivered?Math.round(S.onTime/S.delivered*100):0}%</b></p><p>Загрузка автопарка: <b>${Math.round(util)}%</b></p>`;
+ $("events").innerHTML=S.events.slice(-5).reverse().map(e=>`<div class="event"><b>${e.t}</b><div>${e.d}</div></div>`).join("");
+ drawMap();
+}
+function getOrder(id){return S.orders.find(o=>o.id===id)}
+function toggle(id){let i=S.selected.indexOf(id);i<0?S.selected.push(id):S.selected.splice(i,1);render()}
+function addRoute(){
+ if(!S.selected.length)return toast("Сначала выберите заказы");
+ let v=S.vehicles.find(x=>x.id===$("vehicle").value),os=S.selected.map(getOrder),need=v.load+os.reduce((a,o)=>a+o.weight,0);
+ if(need>v.cap)return toast("❌ Недостаточно грузоподъёмности");
+ os.forEach(o=>{o.status="В маршруте";v.route.push(o.id);v.load+=o.weight});
+ S.selected=[];render();toast("Заказы добавлены в маршрут");
+}
+function dispatch(id){
+ let v=S.vehicles.find(x=>x.id===id);if(!v.route.length)return;
+ let cur=get(getOrder(v.route[0]).from),km=0,min=0;
+ v.route.forEach(oid=>{let o=getOrder(oid),dest=get(o.to),d=distance(cur,dest);km+=d;min+=d*5+rnd(4,12);cur=dest});
+ km+=distance(cur,get(getOrder(v.route[v.route.length-1]).from));min+=distance(cur,get(getOrder(v.route[v.route.length-1]).from))*5;
+ min/=Number($("speed").value);
+ let liters=km*(.09+v.cap/22000)*S.fuel,cost=liters*1.65;
+ if(cost>S.budget)return toast("❌ Недостаточно денег на топливо");
+ S.budget-=cost;S.fuelLiters+=liters;v.km+=km;S.time=Math.min(600,S.time+Math.round(min));
+ let n=v.route.length;
+ v.route.forEach(id=>{let o=getOrder(id);o.status="Доставлен";S.delivered++;S.revenue+=o.revenue;if(S.time<=o.due)S.onTime++;else S.late++});
+ v.route=[];v.load=0;
+ S.events.push({t:"Маршрут завершён",d:`${v.name}: ${n} доставок, ${km.toFixed(1)} км, ${liters.toFixed(1)} л, ${money(cost)}.`});
+ randomEvent();render();toast("🚚 Маршрут доставлен");
+ if(S.delivered===S.orders.length)setTimeout(finish,200);
+}
+function randomEvent(){
+ if(Math.random()>.55)return;
+ let e=rnd(1,4);
+ if(e===1){S.time+=25;S.events.push({t:"🚧 Пробка",d:"Потеряно 25 минут."})}
+ if(e===2){S.budget=Math.max(0,S.budget-120);S.events.push({t:"🔧 Поломка",d:"Экстренный ремонт: −€120."})}
+ if(e===3){S.orders.filter(o=>o.status==="Ожидает").slice(0,2).forEach(o=>o.revenue+=80);S.events.push({t:"📈 Срочный спрос",d:"Два заказа получили премию +€80."})}
+ if(e===4){S.time+=15;S.events.push({t:"🛃 Проверка документов",d:"Задержка 15 минут."})}
+}
+function kpi(){let profit=S.revenue-(S.start-S.budget);return Math.max(0,Math.round(profit/8+S.onTime*35-S.late*25+S.delivered*20-S.fuelLiters*3))}
+function finish(){
+ let pct=S.orders.length?S.delivered/S.orders.length:0,score=kpi(),grade=score>=1800?"A+":score>=1400?"A":score>=1000?"B":score>=700?"C":"D";
+ $("modalBody").innerHTML=`<h2>🏁 Итоги дня</h2><p style="font-size:34px;margin:8px 0"><b>${grade}</b></p><p>KPI: <b>${score}</b></p><p>Доставлено: <b>${S.delivered}/${S.orders.length}</b></p><p>Вовремя: <b>${S.onTime}</b> · Просрочено: <b>${S.late}</b></p><p>Выручка: <b>${money(S.revenue)}</b></p><p>Остаток бюджета: <b>${money(S.budget)}</b></p><hr><p class="muted">${pct>=.85?"Отличная работа с временными окнами.":"Нужно улучшить планирование маршрутов и временных окон."}</p>`;
+ $("modal").classList.add("open");
+}
+function rules(){
+ $("modalBody").innerHTML=`<h2>📖 Как играть</h2><ol><li>Выберите сценарий.</li><li>Отметьте несколько ожидающих заказов.</li><li>Выберите автомобиль и нажмите «Добавить в маршрут».</li><li>Не превышайте грузоподъёмность.</li><li>Нажмите «Отправить маршрут».</li><li>Учитывайте время, топливо, бюджет и случайные события.</li><li>Завершите день и получите оценку.</li></ol><p class="muted">Модель учебная: расстояния и время симулируются. Основные темы — маршрутизация, загрузка, стоимость перевозки, временные окна и KPI.</p>`;
+ $("modal").classList.add("open");
+}
+function drawMap(){
+ let m=$("map");m.innerHTML="";
+ for(let i=0;i<L.length;i++)for(let j=i+1;j<L.length;j++){
+  if((i+j)%2===0||L[i].w||L[j].w){let a=L[i],b=L[j],dx=b.x-a.x,dy=b.y-a.y,len=Math.hypot(dx,dy),r=document.createElement("div");r.className="road";r.style.left=a.x+"%";r.style.top=a.y+"%";r.style.width=len+"%";r.style.transform=`rotate(${Math.atan2(dy,dx)}rad)`;m.appendChild(r)}
+ }
+ L.forEach(l=>{let n=document.createElement("div");n.className="node "+(l.w?"warehouse":"");n.style.left=`calc(${l.x}% - 14px)`;n.style.top=`calc(${l.y}% - 14px)`;n.textContent=l.id;m.appendChild(n);let t=document.createElement("div");t.className="node-label";t.style.left=l.x+"%";t.style.top=l.y+"%";t.textContent=l.n;m.appendChild(t)})
+}
+function toast(msg){let t=$("toast");t.textContent=msg;t.classList.add("show");clearTimeout(window.tt);window.tt=setTimeout(()=>t.classList.remove("show"),2200)}
+$("newBtn").onclick=newGame;$("rulesBtn").onclick=rules;$("closeModal").onclick=()=>$("modal").classList.remove("open");
+$("scenario").onchange=newGame;$("allBtn").onclick=()=>{S.selected=S.orders.filter(o=>o.status==="Ожидает").map(o=>o.id);render()};
+$("clearBtn").onclick=()=>{S.selected=[];render()};$("addRoute").onclick=addRoute;$("finishBtn").onclick=finish;
+$("orders").addEventListener("change",e=>{if(e.target.dataset.order)toggle(e.target.dataset.order)});
+$("routes").addEventListener("click",e=>{if(e.target.dataset.dispatch)dispatch(e.target.dataset.dispatch)});
+newGame();
+</script>
+</body>
+</html>
